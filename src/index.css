@@ -1,0 +1,203 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================
+   SOLECRAFT — tweakcn.com inspired premium theme
+   Clean Neutral / Fashion-Tech Minimal
+   ============================================= */
+@layer base {
+    :root {
+        /* Background & Foreground */
+        --background: 0 0% 99%;
+        --foreground: 220 15% 10%;
+
+        /* Card */
+        --card: 0 0% 100%;
+        --card-foreground: 220 15% 10%;
+
+        /* Popover */
+        --popover: 0 0% 100%;
+        --popover-foreground: 220 15% 10%;
+
+        /* Primary — deep charcoal/ink */
+        --primary: 220 20% 12%;
+        --primary-foreground: 0 0% 98%;
+
+        /* Secondary — warm off-white */
+        --secondary: 40 20% 95%;
+        --secondary-foreground: 220 15% 15%;
+
+        /* Muted */
+        --muted: 220 14% 96%;
+        --muted-foreground: 220 10% 55%;
+
+        /* Accent — warm sand */
+        --accent: 35 30% 92%;
+        --accent-foreground: 220 15% 12%;
+
+        /* Destructive */
+        --destructive: 0 72% 51%;
+        --destructive-foreground: 0 0% 98%;
+
+        /* Border & Input */
+        --border: 220 13% 91%;
+        --input: 220 13% 91%;
+
+        /* Ring */
+        --ring: 220 20% 12%;
+
+        /* Radius */
+        --radius: 0.75rem;
+    }
+
+    .dark {
+        --background: 220 20% 8%;
+        --foreground: 220 10% 95%;
+
+        --card: 220 20% 10%;
+        --card-foreground: 220 10% 95%;
+
+        --popover: 220 20% 10%;
+        --popover-foreground: 220 10% 95%;
+
+        --primary: 0 0% 95%;
+        --primary-foreground: 220 20% 8%;
+
+        --secondary: 220 15% 15%;
+        --secondary-foreground: 220 10% 90%;
+
+        --muted: 220 15% 14%;
+        --muted-foreground: 220 10% 55%;
+
+        --accent: 220 15% 16%;
+        --accent-foreground: 220 10% 90%;
+
+        --destructive: 0 62% 50%;
+        --destructive-foreground: 0 0% 98%;
+
+        --border: 220 15% 18%;
+        --input: 220 15% 18%;
+
+        --ring: 220 10% 80%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-feature-settings:
+            "kern" 1,
+            "liga" 1,
+            "calt" 1;
+    }
+}
+
+@layer utilities {
+    .glass {
+        backdrop-filter: blur(12px) saturate(180%);
+        -webkit-backdrop-filter: blur(12px) saturate(180%);
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .glass-dark {
+        backdrop-filter: blur(12px) saturate(180%);
+        -webkit-backdrop-filter: blur(12px) saturate(180%);
+        background: rgba(15, 17, 22, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .text-gradient {
+        background: linear-gradient(
+            135deg,
+            hsl(220, 20%, 12%) 0%,
+            hsl(220, 15%, 40%) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .text-gradient-warm {
+        background: linear-gradient(
+            135deg,
+            hsl(220, 20%, 12%) 0%,
+            hsl(25, 60%, 40%) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .hero-gradient {
+        background:
+            radial-gradient(
+                ellipse 80% 60% at 50% -10%,
+                hsl(40, 30%, 92%) 0%,
+                transparent 60%
+            ),
+            radial-gradient(
+                ellipse 60% 40% at 80% 40%,
+                hsl(220, 30%, 94%) 0%,
+                transparent 50%
+            ),
+            hsl(0, 0%, 99%);
+    }
+
+    .noise-bg {
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
+    }
+
+    .hover-lift {
+        transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    .hover-lift:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+    }
+
+    .swatch-ring {
+        box-shadow:
+            0 0 0 2px hsl(var(--background)),
+            0 0 0 4px hsl(var(--primary));
+    }
+
+    .scrollbar-none {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .scrollbar-none::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Smooth page transitions */
+@keyframes page-in {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-enter {
+    animation: page-in 0.5s ease-out forwards;
+}
