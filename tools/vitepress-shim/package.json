@@ -1,0 +1,9 @@
+{
+  "name": "vitepress",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "vitepress": "bin/vitepress.js"
+  }
+}
