@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
@@ -45,9 +45,15 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
   const [copied, setCopied] = useState(false);
   const variant = variantProp || getVariantForSelection(design);
   const [saved, setSaved] = useState([]);
+  const [saveName, setSaveName] = useState('');
+  const fileInputRef = useRef(null);
 
   // load saved designs from localStorage
-  React.useEffect(() => {
+  useEffect(() => {
+    loadSaved();
+  }, [saveOpen]);
+
+  function loadSaved() {
     try {
       const key = 'solecraft.savedDesigns';
       const existing = JSON.parse(localStorage.getItem(key) || '[]');
@@ -55,12 +61,13 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
     } catch (e) {
       setSaved([]);
     }
-  }, [saveOpen]);
+  }
 
   const summaryItems = [
     { label: "Type", value: variant.type },
     { label: "Model", value: variant.name },
     { label: "Color", value: variant.color, colorKey: variant.color },
+    { label: "Size", value: variant.size || (design && design.size) || '—' },
     { label: "File", value: variant.file },
   ];
 
@@ -112,23 +119,99 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
             <CardTitle className="text-sm font-semibold">Saved Designs</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {saved.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No saved designs yet. Save one from the dialog.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {saved.slice(0, 6).map((s, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{s.name} · {s.color}</p>
-                      <p className="text-xs text-muted-foreground truncate">{new Date(s.savedAt).toLocaleString()}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a href={s.src} download={s.file} className="text-xs text-foreground hover:underline">Download</a>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs text-muted-foreground">Saved designs</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      // export saved designs
+                      try {
+                        const key = 'solecraft.savedDesigns';
+                        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                        const blob = new Blob([JSON.stringify(existing, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'solecraft-saved-designs.json';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        showToast('Export started');
+                      } catch (e) {
+                        showToast('Export failed');
+                      }
+                    }}
+                  >
+                    Export
+                  </button>
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  >
+                    Import
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files && e.target.files[0];
+                      if (!f) return;
+                      try {
+                        const text = await f.text();
+                        const parsed = JSON.parse(text);
+                        if (!Array.isArray(parsed)) throw new Error('Invalid format');
+                        const key = 'solecraft.savedDesigns';
+                        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                        const merged = existing.concat(parsed);
+                        localStorage.setItem(key, JSON.stringify(merged));
+                        loadSaved();
+                        showToast('Import successful');
+                      } catch (err) {
+                        showToast('Import failed');
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
               </div>
-            )}
+              {saved.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No saved designs yet. Save one from the dialog.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {saved.slice(0, 6).map((s, i) => (
+                    <div key={s.savedAt} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{s.name} · {s.color} · Size {s.size}</p>
+                        <p className="text-xs text-muted-foreground truncate">{new Date(s.savedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a href={s.src} download={s.file} className="text-xs text-foreground hover:underline">Download</a>
+                        <button
+                          onClick={() => {
+                            try {
+                              const key = 'solecraft.savedDesigns';
+                              const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                              const filtered = existing.filter((x) => x.savedAt !== s.savedAt);
+                              localStorage.setItem(key, JSON.stringify(filtered));
+                              loadSaved();
+                              showToast('Deleted');
+                            } catch (e) {
+                              showToast('Unable to delete');
+                            }
+                          }}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
           </CardContent>
         </Card>
       </div>
@@ -142,10 +225,17 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
             </div>
             <DialogTitle>Design Saved!</DialogTitle>
             <DialogDescription>
-              Your shoe selection has been saved successfully. This is a prototype action — no data is stored.
+              Your shoe selection has been saved locally. Optionally download the asset.
             </DialogDescription>
           </DialogHeader>
           <div className="bg-secondary/50 rounded-xl p-4 space-y-1.5 text-sm">
+            <label className="block text-xs text-muted-foreground mb-2">Save name</label>
+            <input
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder={`${variant.name} — ${variant.color}`}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm"
+            />
             <div className="flex justify-between">
               <span className="text-muted-foreground">Model</span>
               <span className="font-medium">{variant.name}</span>
@@ -160,34 +250,57 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
             </div>
           </div>
           <DialogFooter>
-            <Button
-              onClick={() => {
-                try {
-                  // persist to localStorage
-                  const key = 'solecraft.savedDesigns';
-                  const existing = JSON.parse(localStorage.getItem(key) || '[]');
-                  existing.push({ type: variant.type, name: variant.name, color: variant.color, file: variant.file, src: variant.src, savedAt: Date.now() });
-                  localStorage.setItem(key, JSON.stringify(existing));
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => {
+                  try {
+                    // persist to localStorage
+                    const key = 'solecraft.savedDesigns';
+                    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                    const entry = { type: variant.type, name: saveName || `${variant.name} · ${variant.color}`, color: variant.color, size: variant.size || (design && design.size) || '9', file: variant.file, src: variant.src, savedAt: Date.now() };
+                    existing.push(entry);
+                    localStorage.setItem(key, JSON.stringify(existing));
+                    showToast('Design saved locally');
+                    loadSaved();
+                  } catch (e) {
+                    showToast('Unable to save');
+                  }
+                  setSaveOpen(false);
+                }}
+                className="w-full rounded-xl gap-2"
+              >
+                Save
+              </Button>
 
-                  // trigger a download
-                  const link = document.createElement('a');
-                  link.href = variant.src;
-                  link.download = variant.file || 'design.png';
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-
-                  showToast('Design saved locally and download started');
-                } catch (e) {
-                  showToast('Unable to save/download');
-                }
-                setSaveOpen(false);
-              }}
-              className="w-full rounded-xl gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download Concept
-            </Button>
+              <Button
+                onClick={() => {
+                  try {
+                    // persist to localStorage then download
+                    const key = 'solecraft.savedDesigns';
+                    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                    const entry = { type: variant.type, name: saveName || `${variant.name} · ${variant.color}`, color: variant.color, size: variant.size || (design && design.size) || '9', file: variant.file, src: variant.src, savedAt: Date.now() };
+                    existing.push(entry);
+                    localStorage.setItem(key, JSON.stringify(existing));
+                    // trigger a download
+                    const link = document.createElement('a');
+                    link.href = variant.src;
+                    link.download = variant.file || 'design.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('Design saved and download started');
+                    loadSaved();
+                  } catch (e) {
+                    showToast('Unable to save/download');
+                  }
+                  setSaveOpen(false);
+                }}
+                className="w-full rounded-xl gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Save & Download
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

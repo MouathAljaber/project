@@ -61,7 +61,10 @@ export const SHOE_VARIANTS = SHOE_MODELS.flatMap((model) =>
 export const DEFAULT_SHOE_SELECTION = {
   modelType: "01",
   color: "White",
+  size: "9",
 };
+
+export const AVAILABLE_SIZES = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12];
 
 export function getModelByType(type) {
   return SHOE_MODELS.find((model) => model.type === type) || SHOE_MODELS[0];

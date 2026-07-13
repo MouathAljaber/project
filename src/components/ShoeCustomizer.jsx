@@ -7,7 +7,7 @@ import { ChevronLeft, Palette } from "lucide-react";
 import ColorSwatch from "./ColorSwatch";
 import ShoePreview from "./ShoePreview";
 import DesignSummary from "./DesignSummary";
-import { DEFAULT_SHOE_SELECTION, SHOE_MODELS, getAvailableColors, getModelByType } from "../lib/shoeCatalog";
+import { DEFAULT_SHOE_SELECTION, SHOE_MODELS, getAvailableColors, getModelByType, AVAILABLE_SIZES } from "../lib/shoeCatalog";
 import { getVariantForSelection } from "../lib/shoeCatalog";
 
 function ModelButton({ model, selected, onClick }) {
@@ -43,10 +43,12 @@ export default function ShoeCustomizer({ onBack }) {
       const params = new URLSearchParams(window.location.search);
       const modelType = params.get("modelType");
       const color = params.get("color");
+      const size = params.get("size");
       if (modelType || color) {
         setDesign((prev) => ({
           modelType: modelType || prev.modelType,
           color: color || prev.color,
+          size: size || prev.size,
         }));
       }
     } catch (e) {
@@ -70,6 +72,7 @@ export default function ShoeCustomizer({ onBack }) {
         const p = new URLSearchParams(window.location.search);
         p.set("modelType", next.modelType);
         p.set("color", next.color);
+        if (prev.size) p.set("size", prev.size);
         const url = `${window.location.pathname}?${p.toString()}`;
         window.history.replaceState({}, "", url);
       } catch (e) {}
@@ -84,6 +87,22 @@ export default function ShoeCustomizer({ onBack }) {
         const p = new URLSearchParams(window.location.search);
         p.set("modelType", next.modelType);
         p.set("color", next.color);
+        if (next.size) p.set("size", next.size);
+        const url = `${window.location.pathname}?${p.toString()}`;
+        window.history.replaceState({}, "", url);
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const applySize = (size) => {
+    setDesign((prev) => {
+      const next = { ...prev, size };
+      try {
+        const p = new URLSearchParams(window.location.search);
+        p.set("modelType", next.modelType);
+        p.set("color", next.color);
+        p.set("size", next.size);
         const url = `${window.location.pathname}?${p.toString()}`;
         window.history.replaceState({}, "", url);
       } catch (e) {}
@@ -134,6 +153,26 @@ export default function ShoeCustomizer({ onBack }) {
               >
                 <ColorSwatch color={color} selected={design.color === color} />
                 <span>{color}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/60">
+        <CardHeader className="pb-3 pt-5 px-5">
+          <CardTitle className="text-sm font-semibold">Size</CardTitle>
+          <p className="text-xs text-muted-foreground">Choose your shoe size.</p>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          <div className="flex flex-wrap gap-2">
+            {AVAILABLE_SIZES.map((s) => (
+              <button
+                key={s}
+                onClick={() => applySize(String(s))}
+                className={`px-3 py-2 rounded-lg text-sm transition-colors border ${design.size === String(s) ? 'bg-foreground text-background border-foreground' : 'bg-background text-muted-foreground hover:border-foreground/30'}`}
+              >
+                {s}
               </button>
             ))}
           </div>
