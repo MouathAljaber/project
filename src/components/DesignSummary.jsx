@@ -47,6 +47,10 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
   const [saved, setSaved] = useState([]);
   const [saveName, setSaveName] = useState('');
   const fileInputRef = useRef(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editingName, setEditingName] = useState('');
 
   // load saved designs from localStorage
   useEffect(() => {
@@ -166,10 +170,18 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
                         if (!Array.isArray(parsed)) throw new Error('Invalid format');
                         const key = 'solecraft.savedDesigns';
                         const existing = JSON.parse(localStorage.getItem(key) || '[]');
-                        const merged = existing.concat(parsed);
+                        const combined = existing.concat(parsed);
+                        // dedupe by src|color|size|file, keep latest savedAt
+                        const map = new Map();
+                        combined.forEach((item) => {
+                          const id = `${item.src || ''}|${item.color || ''}|${item.size || ''}|${item.file || ''}`;
+                          const prev = map.get(id);
+                          if (!prev || (item.savedAt && prev.savedAt < item.savedAt)) map.set(id, item);
+                        });
+                        const merged = Array.from(map.values());
                         localStorage.setItem(key, JSON.stringify(merged));
                         loadSaved();
-                        showToast('Import successful');
+                        showToast('Import successful (duplicates removed)');
                       } catch (err) {
                         showToast('Import failed');
                       }
@@ -183,25 +195,122 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
               ) : (
                 <div className="flex flex-col gap-2">
                   {saved.slice(0, 6).map((s, i) => (
-                    <div key={s.savedAt} className="flex items-center justify-between gap-2">
+                    <div
+                      key={s.savedAt}
+                      className="flex items-center justify-between gap-2"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Delete') {
+                          setDeleteTarget(s.savedAt);
+                          setDeleteOpen(true);
+                        }
+                        if (e.key === 'Enter') {
+                          // trigger download
+                          try {
+                            const link = document.createElement('a');
+                            link.href = s.src;
+                            link.download = s.file;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } catch (err) {}
+                        }
+                      }}
+                    >
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{s.name} · {s.color} · Size {s.size}</p>
-                        <p className="text-xs text-muted-foreground truncate">{new Date(s.savedAt).toLocaleString()}</p>
+                        {editingId === s.savedAt ? (
+                          <div className="flex items-center gap-2">
+                            <input value={editingName} onChange={(e) => setEditingName(e.target.value)} className="px-2 py-1 rounded-md text-sm border border-border bg-background" />
+                            <button
+                              onClick={() => {
+                                try {
+                                  const key = 'solecraft.savedDesigns';
+                                  const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                                  const idx = existing.findIndex((x) => x.savedAt === s.savedAt);
+                                  if (idx !== -1) {
+                                    existing[idx].name = editingName || existing[idx].name;
+                                    localStorage.setItem(key, JSON.stringify(existing));
+                                    loadSaved();
+                                    showToast('Renamed');
+                                  }
+                                } catch (e) {
+                                  showToast('Unable to rename');
+                                }
+                                setEditingId(null);
+                              }}
+                              className="text-xs text-foreground"
+                            >
+                              Save
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground">Cancel</button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium truncate">{s.name} · {s.color} · Size {s.size}</p>
+                            <p className="text-xs text-muted-foreground truncate">{new Date(s.savedAt).toLocaleString()}</p>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <a href={s.src} download={s.file} className="text-xs text-foreground hover:underline">Download</a>
                         <button
                           onClick={() => {
+                            setEditingId(s.savedAt);
+                            setEditingName(s.name || '');
+                          }}
+                          className="text-xs text-muted-foreground hover:underline"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          onClick={() => {
                             try {
                               const key = 'solecraft.savedDesigns';
                               const existing = JSON.parse(localStorage.getItem(key) || '[]');
-                              const filtered = existing.filter((x) => x.savedAt !== s.savedAt);
-                              localStorage.setItem(key, JSON.stringify(filtered));
-                              loadSaved();
-                              showToast('Deleted');
+                              const index = existing.findIndex((x) => x.savedAt === s.savedAt);
+                              if (index > 0) {
+                                // move up
+                                const tmp = existing[index - 1];
+                                existing[index - 1] = existing[index];
+                                existing[index] = tmp;
+                                localStorage.setItem(key, JSON.stringify(existing));
+                                loadSaved();
+                                showToast('Reordered');
+                              }
                             } catch (e) {
-                              showToast('Unable to delete');
+                              showToast('Unable to reorder');
                             }
+                          }}
+                          className="text-xs text-muted-foreground hover:underline"
+                        >
+                          Up
+                        </button>
+                        <button
+                          onClick={() => {
+                            try {
+                              const key = 'solecraft.savedDesigns';
+                              const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                              const index = existing.findIndex((x) => x.savedAt === s.savedAt);
+                              if (index !== -1 && index < existing.length - 1) {
+                                const tmp = existing[index + 1];
+                                existing[index + 1] = existing[index];
+                                existing[index] = tmp;
+                                localStorage.setItem(key, JSON.stringify(existing));
+                                loadSaved();
+                                showToast('Reordered');
+                              }
+                            } catch (e) {
+                              showToast('Unable to reorder');
+                            }
+                          }}
+                          className="text-xs text-muted-foreground hover:underline"
+                        >
+                          Down
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(s.savedAt);
+                            setDeleteOpen(true);
                           }}
                           className="text-xs text-red-500 hover:underline"
                         >
@@ -304,6 +413,35 @@ export default function DesignSummary({ design, variant: variantProp, onReset })
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete saved design?</DialogTitle>
+              <DialogDescription>This action will remove the saved design from local storage. This cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => { setDeleteOpen(false); setDeleteTarget(null); }} className="w-full">Cancel</Button>
+                <Button onClick={() => {
+                  try {
+                    const key = 'solecraft.savedDesigns';
+                    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                    const filtered = existing.filter((x) => x.savedAt !== deleteTarget);
+                    localStorage.setItem(key, JSON.stringify(filtered));
+                    showToast('Deleted');
+                    loadSaved();
+                  } catch (e) {
+                    showToast('Unable to delete');
+                  }
+                  setDeleteOpen(false);
+                  setDeleteTarget(null);
+                }} className="w-full">Delete</Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       {/* Share Dialog */}
       <Dialog open={shareOpen} onOpenChange={(open) => { setShareOpen(open); if (!open) setCopied(false); }}>

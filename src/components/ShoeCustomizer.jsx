@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -44,16 +44,23 @@ export default function ShoeCustomizer({ onBack }) {
       const modelType = params.get("modelType");
       const color = params.get("color");
       const size = params.get("size");
-      if (modelType || color) {
+      if (modelType || color || size) {
         setDesign((prev) => ({
           modelType: modelType || prev.modelType,
           color: color || prev.color,
           size: size || prev.size,
         }));
+        return;
       }
     } catch (e) {
       // ignore
     }
+
+    // no URL params, restore last design from localStorage if available
+    try {
+      const last = JSON.parse(localStorage.getItem('solecraft.lastDesign') || 'null');
+      if (last && last.modelType) setDesign((prev) => ({ ...prev, ...last }));
+    } catch (e) {}
   }, []);
 
   const selectedModel = useMemo(() => getModelByType(design.modelType), [design.modelType]);
@@ -108,6 +115,31 @@ export default function ShoeCustomizer({ onBack }) {
       } catch (e) {}
       return next;
     });
+  };
+
+  // autosave last design to localStorage whenever design changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('solecraft.lastDesign', JSON.stringify(design));
+    } catch (e) {}
+  }, [design]);
+
+  // keyboard support for size selector
+  const sizeListRef = useRef(null);
+  const handleSizeKeyDown = (e) => {
+    const sizes = AVAILABLE_SIZES.map(String);
+    const current = design.size || String(AVAILABLE_SIZES[0]);
+    const idx = sizes.indexOf(String(current));
+    if (idx === -1) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      const next = sizes[Math.min(sizes.length - 1, idx + 1)];
+      applySize(next);
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      const prev = sizes[Math.max(0, idx - 1)];
+      applySize(prev);
+      e.preventDefault();
+    }
   };
 
   const reset = () => setDesign(DEFAULT_SHOE_SELECTION);
@@ -165,10 +197,20 @@ export default function ShoeCustomizer({ onBack }) {
           <p className="text-xs text-muted-foreground">Choose your shoe size.</p>
         </CardHeader>
         <CardContent className="px-5 pb-5">
-          <div className="flex flex-wrap gap-2">
+          <div
+            ref={sizeListRef}
+            role="listbox"
+            aria-label="Shoe sizes"
+            tabIndex={0}
+            onKeyDown={handleSizeKeyDown}
+            className="flex flex-wrap gap-2"
+          >
             {AVAILABLE_SIZES.map((s) => (
               <button
                 key={s}
+                role="option"
+                aria-selected={design.size === String(s)}
+                tabIndex={-1}
                 onClick={() => applySize(String(s))}
                 className={`px-3 py-2 rounded-lg text-sm transition-colors border ${design.size === String(s) ? 'bg-foreground text-background border-foreground' : 'bg-background text-muted-foreground hover:border-foreground/30'}`}
               >
