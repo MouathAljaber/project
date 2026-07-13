@@ -29,8 +29,9 @@ export default function ColorSwatch({ color, label, selected, onClick, size = "m
   const isTransparent = color === "Transparent";
 
   return (
-    <button
-      onClick={onClick}
+    <div
+      role="img"
+      aria-label={label || color}
       title={label || color}
       className={cn(
         "relative rounded-full transition-all duration-200 flex items-center justify-center group",
@@ -54,6 +55,6 @@ export default function ColorSwatch({ color, label, selected, onClick, size = "m
       {selected && (
         <Check className={cn("w-3 h-3", ["White", "Cream", "Transparent"].includes(color) ? "text-foreground" : "text-white")} />
       )}
-    </button>
+    </div>
   );
 }

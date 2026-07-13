@@ -5,6 +5,7 @@ import { Separator } from "./ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Save, Share2, RotateCcw, CheckCircle, Link, Download } from "lucide-react";
 import { getVariantForSelection } from "../lib/shoeCatalog";
+import showToast from "../lib/toast";
 
 const colorDots = {
   Black: "#1a1a1a",
@@ -38,10 +39,23 @@ function SummaryRow({ label, value, colorKey }) {
   );
 }
 
-export default function DesignSummary({ design, onReset }) {
+export default function DesignSummary({ design, variant: variantProp, onReset }) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const variant = getVariantForSelection(design);
+  const [copied, setCopied] = useState(false);
+  const variant = variantProp || getVariantForSelection(design);
+  const [saved, setSaved] = useState([]);
+
+  // load saved designs from localStorage
+  React.useEffect(() => {
+    try {
+      const key = 'solecraft.savedDesigns';
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      setSaved(existing.slice().reverse());
+    } catch (e) {
+      setSaved([]);
+    }
+  }, [saveOpen]);
 
   const summaryItems = [
     { label: "Type", value: variant.type },
@@ -91,6 +105,32 @@ export default function DesignSummary({ design, onReset }) {
             <p className="text-xs text-muted-foreground">{variant.color} · {variant.file}</p>
           </CardContent>
         </Card>
+
+        {/* Saved designs (local) */}
+        <Card className="border-border/40">
+          <CardHeader className="px-4 pt-4 pb-2">
+            <CardTitle className="text-sm font-semibold">Saved Designs</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {saved.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No saved designs yet. Save one from the dialog.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {saved.slice(0, 6).map((s, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{s.name} · {s.color}</p>
+                      <p className="text-xs text-muted-foreground truncate">{new Date(s.savedAt).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a href={s.src} download={s.file} className="text-xs text-foreground hover:underline">Download</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Save Dialog */}
@@ -120,7 +160,31 @@ export default function DesignSummary({ design, onReset }) {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setSaveOpen(false)} className="w-full rounded-xl gap-2">
+            <Button
+              onClick={() => {
+                try {
+                  // persist to localStorage
+                  const key = 'solecraft.savedDesigns';
+                  const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                  existing.push({ type: variant.type, name: variant.name, color: variant.color, file: variant.file, src: variant.src, savedAt: Date.now() });
+                  localStorage.setItem(key, JSON.stringify(existing));
+
+                  // trigger a download
+                  const link = document.createElement('a');
+                  link.href = variant.src;
+                  link.download = variant.file || 'design.png';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  showToast('Design saved locally and download started');
+                } catch (e) {
+                  showToast('Unable to save/download');
+                }
+                setSaveOpen(false);
+              }}
+              className="w-full rounded-xl gap-2"
+            >
               <Download className="w-4 h-4" />
               Download Concept
             </Button>
@@ -129,7 +193,7 @@ export default function DesignSummary({ design, onReset }) {
       </Dialog>
 
       {/* Share Dialog */}
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+      <Dialog open={shareOpen} onOpenChange={(open) => { setShareOpen(open); if (!open) setCopied(false); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-3">
@@ -141,11 +205,34 @@ export default function DesignSummary({ design, onReset }) {
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 bg-secondary rounded-xl p-3">
-            <code className="text-xs text-muted-foreground flex-1 truncate">
-              solecraft.design/share/{variant.type}-{variant.color.toLowerCase().replace(/\s+/g, "-")}
-            </code>
-            <Button size="sm" variant="secondary" className="shrink-0 rounded-lg text-xs h-7">
-              Copy
+            <code className="text-xs text-muted-foreground flex-1 truncate">{typeof window !== 'undefined' ? window.location.href : ''}</code>
+            <Button
+              size="sm"
+              variant={copied ? "secondary" : "outline"}
+              className="shrink-0 rounded-lg text-xs h-7"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(window.location.href);
+                  setCopied(true);
+                  showToast('Link copied to clipboard');
+                } catch (e) {
+                  // fallback
+                  try {
+                    const el = document.createElement('textarea');
+                    el.value = window.location.href;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    setCopied(true);
+                    showToast('Link copied to clipboard');
+                  } catch (err) {
+                    showToast('Unable to copy link');
+                  }
+                }
+              }}
+            >
+              {copied ? 'Copied' : 'Copy'}
             </Button>
           </div>
           <DialogFooter>

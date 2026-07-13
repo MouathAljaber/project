@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -37,6 +37,23 @@ function ModelButton({ model, selected, onClick }) {
 export default function ShoeCustomizer({ onBack }) {
   const [design, setDesign] = useState(DEFAULT_SHOE_SELECTION);
 
+  // Initialize design from URL query params if present (shareable links)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const modelType = params.get("modelType");
+      const color = params.get("color");
+      if (modelType || color) {
+        setDesign((prev) => ({
+          modelType: modelType || prev.modelType,
+          color: color || prev.color,
+        }));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
   const selectedModel = useMemo(() => getModelByType(design.modelType), [design.modelType]);
   const variant = useMemo(() => getVariantForSelection(design), [design.modelType, design.color]);
   const availableColors = useMemo(() => getAvailableColors(design.modelType), [design.modelType]);
@@ -44,15 +61,34 @@ export default function ShoeCustomizer({ onBack }) {
   const applyModel = (modelType) => {
     setDesign((prev) => {
       const nextModel = getModelByType(modelType);
-      return {
+      const next = {
         modelType,
         color: nextModel.colors.includes(prev.color) ? prev.color : nextModel.defaultColor,
       };
+      // reflect in URL
+      try {
+        const p = new URLSearchParams(window.location.search);
+        p.set("modelType", next.modelType);
+        p.set("color", next.color);
+        const url = `${window.location.pathname}?${p.toString()}`;
+        window.history.replaceState({}, "", url);
+      } catch (e) {}
+      return next;
     });
   };
 
   const applyColor = (color) => {
-    setDesign((prev) => ({ ...prev, color }));
+    setDesign((prev) => {
+      const next = { ...prev, color };
+      try {
+        const p = new URLSearchParams(window.location.search);
+        p.set("modelType", next.modelType);
+        p.set("color", next.color);
+        const url = `${window.location.pathname}?${p.toString()}`;
+        window.history.replaceState({}, "", url);
+      } catch (e) {}
+      return next;
+    });
   };
 
   const reset = () => setDesign(DEFAULT_SHOE_SELECTION);

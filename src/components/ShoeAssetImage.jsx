@@ -22,6 +22,8 @@ export default function ShoeAssetImage({
           src={src}
           alt={alt}
           className={imgClassName}
+          loading="lazy"
+          decoding="async"
           onError={() => setHasError(true)}
         />
       )}
